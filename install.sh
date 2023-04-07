@@ -63,7 +63,7 @@ if [ "$DB_PWD" = "unset" ]
 then
   DB_PWD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1 || true)
 fi
-MERCURE_BASE=/opt/mercure
+MERCURE_BASE=/var/opt/mercure
 DATA_PATH=$MERCURE_BASE/data
 CONFIG_PATH=$MERCURE_BASE/config
 DB_PATH=$MERCURE_BASE/db
@@ -322,7 +322,7 @@ setup_docker () {
     sudo cp $MERCURE_SRC/docker/docker-compose.yml $MERCURE_BASE
     sudo sed -i -e "s/\\\${GID}/$(getent group docker | cut -d: -f3)/g" $MERCURE_BASE/docker-compose.yml
     sudo sed -i "s/\\\${IMAGE_TAG}/$IMAGE_TAG/g" $MERCURE_BASE/docker-compose.yml
-    sudo sed -i "s/\/opt\/mercure/$IMAGE_TAG/g" $MERCURE_BASE/docker-compose.yml
+    sudo sed -i "s|/opt/mercure|$MERCURE_BASE|g" $MERCURE_BASE/docker-compose.yml
     sudo chown $OWNER:$OWNER "$MERCURE_BASE"/docker-compose.yml
   fi
 }
