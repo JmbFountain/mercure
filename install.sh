@@ -9,11 +9,23 @@ error() {
 }
 trap 'error ${LINENO}' ERR
 
-UBUNTU_VERSION=$(lsb_release -rs)
-if [ $UBUNTU_VERSION != "20.04" ] && [ $UBUNTU_VERSION != "22.04" ]; then
+DIST_NAME=$(lsb_release -is)
+DIST_VERSION=$(lsb_release -rs)
+
+# TODO make sure this script works properly with Debian too
+# if [ $DIST_NAME != "Ubuntu" ] && [ $DIST_NAME != "Debian" ]; then
+#   echo "Invalid operating system!"
+#   echo "This mercure version requires Ubuntu 20.04 LTS, 22.04 LTS or Debian 11"
+#   echo "Detected operating system = $DIST_NAME"
+#   exit 1
+# fi
+
+
+
+if [ $DIST_VERSION != "20.04" ] && [ $DIST_VERSION != "22.04" ]; then
   echo "Invalid operating system!"
   echo "This mercure version requires Ubuntu 20.04 LTS or 22.04 LTS"
-  echo "Detected operating system = $UBUNTU_VERSION"
+  echo "Detected operating system = $DIST_NAME $DIST_VERSION"
   exit 1
 fi
 
@@ -214,9 +226,9 @@ EOFA
 
 setup_nomad_keys() {
   if [ ! -f "$MERCURE_BASE"/processor-keys/id_rsa ]; then
-    sudo mkdir /opt/mercure/processor-keys/
+    sudo mkdir $MERCURE_BASE/processor-keys/
     echo "Generating SSH key..."
-    sudo ssh-keygen -t rsa -N '' -f /opt/mercure/processor-keys/id_rsa
+    sudo ssh-keygen -t rsa -N '' -f $MERCURE_BASE/processor-keys/id_rsa
     sudo chown -R $OWNER:$OWNER "$MERCURE_BASE/processor-keys"
   fi
 }
@@ -229,7 +241,7 @@ setup_nomad() {
     sudo cp $MERCURE_SRC/nomad/mercure.nomad $MERCURE_BASE
     sudo cp $MERCURE_SRC/nomad/mercure-ui.nomad $MERCURE_BASE
     sudo cp $MERCURE_SRC/nomad/policies/anonymous-strict.policy.hcl $MERCURE_BASE
-    sudo sed -i "s#SSHPUBKEY#$(cat /opt/mercure/processor-keys/id_rsa.pub)#g"  $MERCURE_BASE/mercure.nomad
+    sudo sed -i "s#SSHPUBKEY#$(cat $MERCURE_BASE/processor-keys/id_rsa.pub)#g"  $MERCURE_BASE/mercure.nomad
     sudo sed -i "s/\\\${IMAGE_TAG}/$IMAGE_TAG/g" $MERCURE_BASE/mercure.nomad
     sudo sed -i "s/\\\${IMAGE_TAG}/$IMAGE_TAG/g" $MERCURE_BASE/mercure-ui.nomad
 
@@ -278,17 +290,17 @@ install_docker () {
   if [ ! -x "$(command -v docker)" ]; then 
     echo "## Installing Docker..."
     sudo apt-get update
-    sudo apt-get remove docker docker-engine docker.io || true
+    sudo apt-get remove docker docker-engine docker.io containerd runc || true
     echo '* libraries/restart-without-asking boolean true' | sudo debconf-set-selections
     sudo apt-get install apt-transport-https ca-certificates curl software-properties-common -y
-    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg |  sudo apt-key add -
-    sudo apt-key fingerprint 0EBFCD88
-    sudo add-apt-repository \
-        "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-        $(lsb_release -cs) \
-        stable"
+    sudo mkdir -m 0755 -p /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    echo \
+    	"deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+    	"$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+    	sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt-get update
-    sudo apt-get install -y docker-ce
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     # Restart docker to make sure we get the latest version of the daemon if there is an upgrade
     sudo service docker restart
     # Make sure we can actually use docker as the vagrant user
@@ -330,7 +342,7 @@ build_docker () {
 
 start_docker () {
   echo "## Starting docker compose..."  
-  cd /opt/mercure
+  cd $MERCURE_BASE
   sudo docker-compose up -d
 }
 
