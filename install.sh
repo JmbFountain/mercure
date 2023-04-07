@@ -321,6 +321,13 @@ setup_docker () {
     echo "## Copying docker-compose.yml..."
     sudo cp $MERCURE_SRC/docker/docker-compose.yml $MERCURE_BASE
     sudo sed -i -e "s/\\\${GID}/$(getent group docker | cut -d: -f3)/g" $MERCURE_BASE/docker-compose.yml
+    read -p "Use latest available Docker image (y/n)? " ANS
+    if [ "$ANS" = "y" ]; then
+      echo "Using latest available Docker images"
+      IMAGE_TAG=""
+    else
+      echo "Using Image version $IMAGE_TAG"
+    fi
     sudo sed -i "s/\\\${IMAGE_TAG}/$IMAGE_TAG/g" $MERCURE_BASE/docker-compose.yml
     sudo sed -i "s|/opt/mercure|$MERCURE_BASE|g" $MERCURE_BASE/docker-compose.yml
     sudo chown $OWNER:$OWNER "$MERCURE_BASE"/docker-compose.yml
